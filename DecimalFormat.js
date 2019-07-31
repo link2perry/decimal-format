@@ -55,49 +55,6 @@ class DecimalFormat {
       return formatted;
     }
 
-    let _formatFractionalPart = (input, pattern) => {
-      if(typeof input === 'undefined' || input === null) {
-        input = '';
-      }
-      //remove trailing zeros from fractional input      
-      input = new Number('0.' + input).toString().substring(2); 
-      let formatted = '';
-      if(typeof pattern !== 'undefined' && pattern.length > 0) {
-        let requiredIndex = pattern.lastIndexOf('0') + 1;
-        let optionalIndex = Math.max(pattern.lastIndexOf('#') + 1, requiredIndex);
-        let inputLength = input ? ('' + input).length : 0;
-
-        // console.log('pattern:', pattern);
-        // console.log('input:', input);
-        // console.log('input length:', inputLength);
-        // console.log('fractional input:', input);
-        // console.log('fractional input length:', inputLength);
-        // console.log('required index:', requiredIndex);
-        // console.log('optional index:', optionalIndex);
-        
-        if(inputLength > 0) {
-          if(inputLength > optionalIndex) {
-            let optionalInput = input.substring(0, optionalIndex) + '.' + input[optionalIndex];
-            let roundedOptionalInput = Math.round(optionalInput);
-            let leadingZeroes = optionalIndex - ('' + roundedOptionalInput).length;
-            if(leadingZeroes > 0) {
-              formatted = '0'.repeat(leadingZeroes) + roundedOptionalInput;
-            } else {
-              formatted = roundedOptionalInput;
-            }
-            //'0'.repeat(leadingZeroes) + Math.round(input / Math.pow(10, inputLength - optionalIndex))
-          } else if (inputLength >= requiredIndex) {
-            formatted = '' + input;
-          } else {
-            formatted = '' + input + '0'.repeat(requiredIndex - inputLength);
-          }
-        } else {
-          formatted = '0'.repeat(requiredIndex);
-        }
-      } 
-      return formatted;       
-    }
-
     let _addCommas = (input, interval) => {
       var inputs = ('' + input).split('.');
       if (inputs[0].length > interval) {
@@ -128,6 +85,7 @@ class DecimalFormat {
     if(commaIndex > -1) {
       commaInterval = endingIndex - commaIndex - 1;
     }
+
     if(decimalIndex > -1) {
       //whole number + fractional
       let patterns = this.pattern.split('.');
@@ -145,15 +103,41 @@ class DecimalFormat {
         suffix = patterns[1].substring(match.index);
         patterns[1] = patterns[1].substring(0, match.index);
       }
-
       let inputs = input.split('.');
-      formatted[0] = _formatWholePart(inputs[0], patterns[0]);
-      formatted[1] = _formatFractionalPart(inputs[1], patterns[1]);
-      if(typeof formatted[1] !== 'undefined' && ('' + formatted[1]).length > 0) {
-        formatted = formatted.join('.');
-      } else {
-        formatted = formatted[0];
+
+
+      let fractionalPattern = patterns[1];
+      let index;
+      if(typeof fractionalPattern !== 'undefined' && fractionalPattern.length > 0) {
+        
+        let requiredIndex = fractionalPattern.lastIndexOf('0') + 1;
+        let optionalIndex = fractionalPattern.lastIndexOf('#') + 1;
+        if(requiredIndex > optionalIndex) {
+          
+          index = requiredIndex;
+        } else {
+          if(inputs && inputs.length > 1) {
+            let fractional = new Number('0.' + inputs[1]).toString().substring(2).length; 
+            index = Math.min(fractionalPattern.lastIndexOf('#') + 1, fractional);
+          } else {
+            index = 0;
+          }
+        }
+        index = Math.max(index, requiredIndex);
       }
+
+      let n = new Number(input);
+      let precision = Math.pow(10, index);
+      formatted[1] = (Math.round( n * precision ) / precision);
+      formatted[1] = formatted[1].toFixed(index);
+      formatted[0] = ('' + formatted[1]).substring(0, formatted[1].indexOf('.'));
+      if(index === 0) {
+        formatted[0] = formatted[1];  
+      } else {
+        formatted[1] = ('' + formatted[1]).substring(formatted[1].indexOf('.') + 1);
+      }
+      formatted[0] = _formatWholePart(formatted[0], patterns[0]);
+      formatted = index === 0 ? formatted[0] : formatted.join('.');
     } else {
       //whole number only
       let pattern = this.pattern;
